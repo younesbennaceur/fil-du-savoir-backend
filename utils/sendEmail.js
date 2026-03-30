@@ -63,7 +63,7 @@ export const sendInscriptionEmails = async (inscription) => {
           <p><strong>Cours :</strong> ${inscription.courseType} - ${inscription.level}</p>
           <p><strong>Créneau :</strong> ${inscription.schedules.join(', ')}</p>
           <br>
-        <a href="https://fil-du-savoir-liard.vercel.app/admin" style="background-color: #0D47A1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Voir le tableau de bord</a>
+        <a href="https://www.fildusavoir.com/admin" style="background-color: #0D47A1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Voir le tableau de bord</a>
         </div>
       `
     });
