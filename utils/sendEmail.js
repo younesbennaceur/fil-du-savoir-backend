@@ -5,14 +5,19 @@ dotenv.config();
 
 // 1. Configurer le "Transporteur" (Celui qui livre le mail)
 // 1. Configurer le "Transporteur" (Celui qui livre le mail)
+// 1. Configurer le "Transporteur" (Celui qui livre le mail)
 const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com', // Remplace service: 'gmail' par ceci
-  port: 465,              // Ajoute le port sécurisé
-  secure: true,           // Active la sécurité SSL
+  host: 'smtp.gmail.com',
+  port: 587,               // 👈 On utilise le port 587 au lieu de 465
+  secure: false,           // 👈 Obligatoirement 'false' avec le port 587
+  requireTLS: true,        // 👈 Force la connexion sécurisée
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
   },
+  tls: {
+    rejectUnauthorized: false // 👈 Évite les blocages de sécurité stricts de Render
+  }
 });
 
 export const sendInscriptionEmails = async (inscription) => {
