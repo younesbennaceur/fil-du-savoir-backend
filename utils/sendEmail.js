@@ -3,23 +3,23 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-// 1. Initialiser Resend avec ta clé API (qui est sur Render)
 const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendInscriptionEmails = async (inscription) => {
   try {
-    // ⚠️ Obligatoire avec Resend tant que tu n'as pas de nom de domaine (ex: fildusavoir.com)
-    const senderEmail = 'onboarding@resend.dev'; 
+    // 🌟 LA MAGIE EST ICI : On utilise ton vrai nom de domaine !
+    // Tu peux inventer le mot avant le @ (contact, inscription, bonjour...)
+    const senderEmail = 'contact@fildusavoir.com'; 
     
-    // L'adresse de l'association (que tu as configurée sur Render dans EMAIL_USER)
+    // L'adresse de l'association (assofildusavoir@gmail.com) configurée sur Render
     const adminEmail = process.env.EMAIL_USER; 
 
     console.log(`Préparation de l'envoi des emails pour : ${inscription.studentName}`);
 
-    // 2. Envoyer l'email de confirmation au PARENT
+    // 💌 1. ENVOYER L'EMAIL AU PARENT
     const { data: parentData, error: parentError } = await resend.emails.send({
       from: `"Fil du Savoir" <${senderEmail}>`,
-      to: [inscription.parentEmail], // ⚠️ Pour tes tests, tu dois saisir assofildusavoir@gmail.com sur ton site
+      to: [inscription.parentEmail], // 👈 Resend va lire l'email tapé par le parent dans le formulaire
       subject: "Confirmation de votre demande d'inscription 🎉",
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #E3F2FD; border-radius: 10px; overflow: hidden;">
@@ -46,10 +46,10 @@ export const sendInscriptionEmails = async (inscription) => {
     if (parentError) {
       console.error("❌ Erreur Resend (Email Parent) :", parentError);
     } else {
-      console.log("✅ Email parent envoyé avec succès ! ID:", parentData?.id);
+      console.log("✅ Email parent envoyé avec succès !");
     }
 
-    // 3. Envoyer l'email d'alerte à L'ADMINISTRATEUR (L'association)
+    // 🚨 2. ENVOYER L'ALERTE À L'ASSOCIATION
     const { data: adminData, error: adminError } = await resend.emails.send({
       from: `"Système Fil du Savoir" <${senderEmail}>`,
       to: [adminEmail], 
@@ -63,7 +63,7 @@ export const sendInscriptionEmails = async (inscription) => {
           <p><strong>Cours :</strong> ${inscription.courseType} - ${inscription.level}</p>
           <p><strong>Créneau :</strong> ${inscription.schedules.join(', ')}</p>
           <br>
-        <a href="https://www.fildusavoir.com/admin" style="background-color: #0D47A1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Voir le tableau de bord</a>
+          <a href="https://www.fildusavoir.com/admin" style="background-color: #0D47A1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Voir le tableau de bord</a>
         </div>
       `
     });
@@ -71,7 +71,7 @@ export const sendInscriptionEmails = async (inscription) => {
     if (adminError) {
       console.error("❌ Erreur Resend (Email Admin) :", adminError);
     } else {
-      console.log("✅ Email admin envoyé avec succès ! ID:", adminData?.id);
+      console.log("✅ Email admin envoyé avec succès !");
     }
 
   } catch (error) {
