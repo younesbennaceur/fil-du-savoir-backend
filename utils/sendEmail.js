@@ -1,26 +1,25 @@
-import nodemailer from 'nodemailer';
+import { Resend } from 'resend';
 import dotenv from 'dotenv';
 
 dotenv.config();
 
-// 1. Configurer le "Transporteur" (Celui qui livre le mail)
-// 1. Configurer le "Transporteur" (Celui qui livre le mail)
-const transporter = nodemailer.createTransport({
-  host: 'smtp.gmail.com', // Remplace service: 'gmail' par ceci
-  port: 465,              // Ajoute le port sécurisé
-  secure: true,           // Active la sécurité SSL
-  auth: {
-    user: process.env.EMAIL_USER,
-    pass: process.env.EMAIL_PASS,
-  },
-});
+// 1. Initialiser Resend avec ta clé API (qui est sur Render)
+const resend = new Resend(process.env.RESEND_API_KEY);
 
 export const sendInscriptionEmails = async (inscription) => {
   try {
-    // 2. Préparer l'email pour le PARENT
-    const mailOptionsParent = {
-      from: `"Fil du Savoir" <${process.env.EMAIL_USER}>`,
-      to: inscription.parentEmail,
+    // ⚠️ Obligatoire avec Resend tant que tu n'as pas de nom de domaine (ex: fildusavoir.com)
+    const senderEmail = 'onboarding@resend.dev'; 
+    
+    // L'adresse de l'association (que tu as configurée sur Render dans EMAIL_USER)
+    const adminEmail = process.env.EMAIL_USER; 
+
+    console.log(`Préparation de l'envoi des emails pour : ${inscription.studentName}`);
+
+    // 2. Envoyer l'email de confirmation au PARENT
+    const { data: parentData, error: parentError } = await resend.emails.send({
+      from: `"Fil du Savoir" <${senderEmail}>`,
+      to: [inscription.parentEmail], // ⚠️ Pour tes tests, tu dois saisir assofildusavoir@gmail.com sur ton site
       subject: "Confirmation de votre demande d'inscription 🎉",
       html: `
         <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #E3F2FD; border-radius: 10px; overflow: hidden;">
@@ -42,12 +41,18 @@ export const sendInscriptionEmails = async (inscription) => {
           </div>
         </div>
       `
-    };
+    });
 
-    // 3. Préparer l'email pour L'ADMINISTRATEUR (Toi)
-    const mailOptionsAdmin = {
-      from: `"Système Fil du Savoir" <${process.env.EMAIL_USER}>`,
-      to: process.env.EMAIL_USER, // Tu te l'envoies à toi-même
+    if (parentError) {
+      console.error("❌ Erreur Resend (Email Parent) :", parentError);
+    } else {
+      console.log("✅ Email parent envoyé avec succès ! ID:", parentData?.id);
+    }
+
+    // 3. Envoyer l'email d'alerte à L'ADMINISTRATEUR (L'association)
+    const { data: adminData, error: adminError } = await resend.emails.send({
+      from: `"Système Fil du Savoir" <${senderEmail}>`,
+      to: [adminEmail], 
       subject: `🚨 Nouvelle inscription : ${inscription.studentName}`,
       html: `
         <div style="font-family: Arial, sans-serif; color: #333;">
@@ -58,20 +63,18 @@ export const sendInscriptionEmails = async (inscription) => {
           <p><strong>Cours :</strong> ${inscription.courseType} - ${inscription.level}</p>
           <p><strong>Créneau :</strong> ${inscription.schedules.join(', ')}</p>
           <br>
-          <a href="http://localhost:5173/admin" style="background-color: #0D47A1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Voir le tableau de bord</a>
+          <a href="https://fil-du-savoir.vercel.app/admin" style="background-color: #0D47A1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Voir le tableau de bord</a>
         </div>
       `
-    };
+    });
 
-    // 4. Envoyer les deux emails
-    await transporter.sendMail(mailOptionsParent);
-    await transporter.sendMail(mailOptionsAdmin);
-    
-    console.log("✅ Emails de confirmation envoyés avec succès !");
+    if (adminError) {
+      console.error("❌ Erreur Resend (Email Admin) :", adminError);
+    } else {
+      console.log("✅ Email admin envoyé avec succès ! ID:", adminData?.id);
+    }
+
   } catch (error) {
-    console.error("❌ Erreur lors de l'envoi des emails :", error);
-      console.error("❌ Code:", error.code);
-  console.error("❌ Message:", error.message);
-  console.error("❌ Détail:", JSON.stringify(error, null, 2));
+    console.error("❌ Erreur critique du serveur lors de l'envoi :", error);
   }
 };
