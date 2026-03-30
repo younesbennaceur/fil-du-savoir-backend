@@ -17,7 +17,14 @@ const app = express();
 connectDB();
 
 // 4. Middlewares Globaux
-app.use(cors()); 
+// 4. Middlewares Globaux
+app.use(cors({
+  origin: "*", // Autorise tout le monde (le plus simple pour débugger)
+  methods: ["GET", "POST", "PUT", "DELETE"],
+  allowedHeaders: ["Content-Type", "x-auth-token"] // Très important pour ton Dashboard !
+}));
+
+
 app.use(express.json()); 
 
 // 5. Définition des points d'accès (Endpoints API)
