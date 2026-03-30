@@ -4,8 +4,11 @@ import dotenv from 'dotenv';
 dotenv.config();
 
 // 1. Configurer le "Transporteur" (Celui qui livre le mail)
+// 1. Configurer le "Transporteur" (Celui qui livre le mail)
 const transporter = nodemailer.createTransport({
-  service: 'gmail', // Si tu utilises Gmail
+  host: 'smtp.gmail.com', // Remplace service: 'gmail' par ceci
+  port: 465,              // Ajoute le port sécurisé
+  secure: true,           // Active la sécurité SSL
   auth: {
     user: process.env.EMAIL_USER,
     pass: process.env.EMAIL_PASS,
