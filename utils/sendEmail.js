@@ -55,8 +55,8 @@ const emailShell = (title, content) => `
   </div>`;
 
 export const sendInscriptionEmails = async (inscription) => {
-  const from = process.env.EMAIL_FROM || 'Fil du Savoir <inscriptions@fildusavoir.com>';
-  const adminEmail = process.env.EMAIL_ADMIN || process.env.EMAIL_USER || 'assofildusavoir@gmail.com';
+  const from = process.env.EMAIL_FROM || 'Fil du Savoir <onboarding@resend.dev>';
+  const adminEmail = process.env.EMAIL_ADMIN || 'assofildusavoir@gmail.com';
   const errors = [];
 
   const parentContent = `
@@ -94,9 +94,9 @@ export const sendStatusEmail = async (inscription) => {
   try {
     const accepted = inscription.status === 'valide';
     await send({
-      from: process.env.EMAIL_FROM || 'Fil du Savoir <inscriptions@fildusavoir.com>',
+      from: process.env.EMAIL_FROM || 'Fil du Savoir <onboarding@resend.dev>',
       to: [inscription.contactEmail],
-      replyTo: process.env.EMAIL_ADMIN || process.env.EMAIL_USER || 'assofildusavoir@gmail.com',
+      replyTo: process.env.EMAIL_ADMIN || 'assofildusavoir@gmail.com',
       subject: `${accepted ? 'Dossier accepté' : 'Mise à jour de votre dossier'} - Fil du Savoir`,
       html: emailShell(
         accepted ? 'Votre inscription est validée' : 'Votre demande ne peut pas être retenue',
