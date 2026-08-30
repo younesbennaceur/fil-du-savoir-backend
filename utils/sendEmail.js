@@ -25,6 +25,13 @@ const escapeHtml = (value = '') => String(value)
 const childName = (inscription) =>
   `${inscription.childFirstName || ''} ${inscription.childLastName || ''}`.trim();
 
+const recipientEmail = (inscription) =>
+  inscription.contactEmail
+  || inscription.fatherEmail
+  || inscription.motherEmail
+  || inscription.parentEmail
+  || '';
+
 const courseList = (inscription) => (inscription.courseChoices || [])
   .map((choice) => `<li>${escapeHtml(COURSE_LABELS[choice] || choice)}</li>`)
   .join('');
@@ -71,7 +78,10 @@ const emailShell = (title, content) => `
 export const sendInscriptionEmails = async (inscription) => {
   const from = `"Fil du Savoir" <${process.env.EMAIL_USER}>`;
   const adminEmail = process.env.EMAIL_ADMIN || 'assofildusavoir@gmail.com';
+  const parentEmail = recipientEmail(inscription);
   const errors = [];
+
+  if (!parentEmail) throw new Error('Aucune adresse e-mail parent disponible');
 
   const parentContent = `
     <p>Bonjour,</p>
@@ -84,13 +94,13 @@ export const sendInscriptionEmails = async (inscription) => {
   const adminContent = `
     <p>Un nouveau dossier vient d'être déposé.</p>
     <p><strong>Enfant :</strong> ${escapeHtml(childName(inscription))}</p>
-    <p><strong>Contact :</strong> ${escapeHtml(inscription.contactEmail)}</p>
+    <p><strong>Contact :</strong> ${escapeHtml(parentEmail)}</p>
     <p><strong>Choix :</strong></p><ul>${courseList(inscription)}</ul>
     <p><a href="${escapeHtml(process.env.ADMIN_URL || 'https://www.fildusavoir.com/admin')}" style="display:inline-block;background:#073da5;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">Ouvrir le dashboard</a></p>`;
 
   const results = await Promise.allSettled([
-    send({ from, to: [inscription.contactEmail], replyTo: adminEmail, subject: 'Dossier d’inscription reçu - Fil du Savoir', html: emailShell('Votre dossier a bien été reçu', parentContent) }),
-    send({ from, to: [adminEmail], replyTo: inscription.contactEmail, subject: `Nouvelle inscription 2026-2027 - ${childName(inscription)}`, html: emailShell('Nouveau dossier reçu', adminContent) })
+    send({ from, to: parentEmail, replyTo: adminEmail, subject: 'Dossier d’inscription reçu - Fil du Savoir', html: emailShell('Votre dossier a bien été reçu', parentContent) }),
+    send({ from, to: adminEmail, replyTo: parentEmail, subject: `Nouvelle inscription 2026-2027 - ${childName(inscription)}`, html: emailShell('Nouveau dossier reçu', adminContent) })
   ]);
 
   results.forEach((result) => {
@@ -108,10 +118,12 @@ export const sendInscriptionEmails = async (inscription) => {
 export const sendStatusEmail = async (inscription) => {
   if (inscription.status === 'en_attente') return { sent: false, reason: 'Statut en attente' };
   try {
+    const parentEmail = recipientEmail(inscription);
+    if (!parentEmail) return { sent: false, reason: 'Aucune adresse e-mail sur ce dossier' };
     const accepted = inscription.status === 'valide';
     await send({
       from: `"Fil du Savoir" <${process.env.EMAIL_USER}>`,
-      to: [inscription.contactEmail],
+      to: parentEmail,
       replyTo: process.env.EMAIL_ADMIN || 'assofildusavoir@gmail.com',
       subject: `${accepted ? 'Dossier accepté' : 'Mise à jour de votre dossier'} - Fil du Savoir`,
       html: emailShell(

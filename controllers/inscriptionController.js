@@ -15,10 +15,13 @@ export const createInscription = async (req, res) => {
     });
 
     sendInscriptionEmails(savedInscription)
-      .then((emailResult) => Inscription.findByIdAndUpdate(savedInscription._id, {
-        emailStatus: emailResult.status,
-        emailError: emailResult.error || ''
-      }))
+      .then((emailResult) => {
+        console.log(`E-mails inscription ${savedInscription._id}: ${emailResult.status} (parent=${emailResult.parentSent}, association=${emailResult.adminSent})`);
+        return Inscription.findByIdAndUpdate(savedInscription._id, {
+          emailStatus: emailResult.status,
+          emailError: emailResult.error || ''
+        });
+      })
       .catch((emailError) => {
         console.error('Erreur e-mail en arrière-plan:', emailError);
         return Inscription.findByIdAndUpdate(savedInscription._id, {
