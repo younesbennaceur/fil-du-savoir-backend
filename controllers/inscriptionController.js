@@ -6,19 +6,26 @@ const ALLOWED_STATUSES = ['en_attente', 'valide', 'refuse'];
 export const createInscription = async (req, res) => {
   try {
     const savedInscription = await Inscription.create(req.body);
-    const emailResult = await sendInscriptionEmails(savedInscription);
-    savedInscription.emailStatus = emailResult.status;
-    savedInscription.emailError = emailResult.error || '';
-    await savedInscription.save();
 
     res.status(201).json({
       success: true,
-      message: emailResult.status === 'envoye'
-        ? 'Votre dossier a bien été reçu. Un e-mail de confirmation vous a été envoyé.'
-        : 'Votre dossier a bien été reçu. La confirmation par e-mail est momentanément indisponible.',
+      message: 'Votre dossier a bien été reçu. La confirmation et la notification à l’association sont en cours d’envoi.',
       id: savedInscription._id,
-      emailStatus: emailResult.status
+      emailStatus: 'en_cours'
     });
+
+    sendInscriptionEmails(savedInscription)
+      .then((emailResult) => Inscription.findByIdAndUpdate(savedInscription._id, {
+        emailStatus: emailResult.status,
+        emailError: emailResult.error || ''
+      }))
+      .catch((emailError) => {
+        console.error('Erreur e-mail en arrière-plan:', emailError);
+        return Inscription.findByIdAndUpdate(savedInscription._id, {
+          emailStatus: 'echec',
+          emailError: emailError.message || String(emailError)
+        });
+      });
   } catch (error) {
     console.error('Erreur création inscription:', error);
     res.status(400).json({

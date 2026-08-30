@@ -1,7 +1,7 @@
-import { Resend } from 'resend';
+import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
 
-dotenv.config();
+dotenv.config({ path: ['.env.local', '.env'] });
 
 const COURSE_LABELS = {
   arabe_enfant_samedi_matin: 'Langue arabe enfants - samedi 9h30 à 12h (niveau 1 et CP)',
@@ -29,12 +29,26 @@ const courseList = (inscription) => (inscription.courseChoices || [])
   .map((choice) => `<li>${escapeHtml(COURSE_LABELS[choice] || choice)}</li>`)
   .join('');
 
+let transporter;
+
+const getTransporter = () => {
+  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
+    throw new Error('EMAIL_USER ou EMAIL_PASS manquant');
+  }
+  if (!transporter) {
+    transporter = nodemailer.createTransport({
+      service: 'gmail',
+      pool: true,
+      maxConnections: 2,
+      maxMessages: 100,
+      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+    });
+  }
+  return transporter;
+};
+
 const send = async (payload) => {
-  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY manquante');
-  const resend = new Resend(process.env.RESEND_API_KEY);
-  const result = await resend.emails.send(payload);
-  if (result.error) throw new Error(result.error.message || 'Erreur Resend');
-  return result.data;
+  return getTransporter().sendMail(payload);
 };
 
 const emailShell = (title, content) => `
@@ -55,7 +69,7 @@ const emailShell = (title, content) => `
   </div>`;
 
 export const sendInscriptionEmails = async (inscription) => {
-  const from = process.env.EMAIL_FROM || 'Fil du Savoir <onboarding@resend.dev>';
+  const from = `"Fil du Savoir" <${process.env.EMAIL_USER}>`;
   const adminEmail = process.env.EMAIL_ADMIN || 'assofildusavoir@gmail.com';
   const errors = [];
 
@@ -85,7 +99,9 @@ export const sendInscriptionEmails = async (inscription) => {
 
   return {
     status: errors.length === 0 ? 'envoye' : errors.length === results.length ? 'echec' : 'partiel',
-    error: errors.join(' | ')
+    error: errors.join(' | '),
+    parentSent: results[0].status === 'fulfilled',
+    adminSent: results[1].status === 'fulfilled'
   };
 };
 
@@ -94,7 +110,7 @@ export const sendStatusEmail = async (inscription) => {
   try {
     const accepted = inscription.status === 'valide';
     await send({
-      from: process.env.EMAIL_FROM || 'Fil du Savoir <onboarding@resend.dev>',
+      from: `"Fil du Savoir" <${process.env.EMAIL_USER}>`,
       to: [inscription.contactEmail],
       replyTo: process.env.EMAIL_ADMIN || 'assofildusavoir@gmail.com',
       subject: `${accepted ? 'Dossier accepté' : 'Mise à jour de votre dossier'} - Fil du Savoir`,

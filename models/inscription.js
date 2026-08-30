@@ -42,8 +42,8 @@ const inscriptionSchema = new mongoose.Schema({
   },
   emailStatus: {
     type: String,
-    enum: ['envoye', 'partiel', 'echec'],
-    default: 'echec'
+    enum: ['en_cours', 'envoye', 'partiel', 'echec'],
+    default: 'en_cours'
   },
   emailError: { type: String, default: '' }
 }, { timestamps: true });

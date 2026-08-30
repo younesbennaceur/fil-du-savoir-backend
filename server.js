@@ -8,7 +8,7 @@ import authRoutes from './routes/authRoutes.js';
 import inscriptionRoutes from './routes/inscriptionRoutes.js';
 
 // 1. Charger les variables secrètes (.env)
-dotenv.config();
+dotenv.config({ path: ['.env.local', '.env'] });
 
 // 2. Initialiser l'application Express
 const app = express();
