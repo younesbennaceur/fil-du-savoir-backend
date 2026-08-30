@@ -1,34 +1,64 @@
 import mongoose from 'mongoose';
 
+export const COURSE_OPTIONS = [
+  'arabe_enfant_samedi_matin',
+  'arabe_enfant_dimanche_matin',
+  'arabe_enfant_samedi_apres_midi',
+  'arabe_enfant_dimanche_apres_midi',
+  'arabe_enfant_mercredi',
+  'soutien_scolaire_samedi',
+  'arabe_femme_vendredi',
+  'arabe_femme_dimanche',
+  'sciences_islamiques_mardi'
+];
+
 const inscriptionSchema = new mongoose.Schema({
-  // ── Informations Parents ──
-  parentName: { type: String, required: true },
-  parentAddress: { type: String, required: true },
-  parentPhone: { type: String, required: true },
-  parentEmail: { type: String, required: true },
-
-
-  studentName: { type: String, required: true },
-  studentAge: { type: Number, required: true },
-  studentPhone: { type: String },
-  level: { type: String, required: true }, 
-  soutienClass: { type: String }, 
-
-
-  courseType: { type: String, required: true }, 
-  schedules: [{ type: String }], 
-
-
-  signature: { type: String, required: true }, // Le nom tapé à la fin
-
-  
+  registrationType: { type: String, enum: ['inscription', 'renouvellement'], required: true },
+  childLastName: { type: String, required: true, trim: true },
+  childFirstName: { type: String, required: true, trim: true },
+  childGender: { type: String, enum: ['F', 'M'], required: true },
+  childBirthDate: { type: Date, required: true },
+  childBirthPlace: { type: String, required: true, trim: true },
+  addressStreetNumber: { type: String, trim: true, default: '' },
+  addressStreet: { type: String, required: true, trim: true },
+  addressCity: { type: String, required: true, trim: true },
+  addressPostalCode: { type: String, required: true, trim: true },
+  fatherName: { type: String, trim: true, default: '' },
+  fatherPhone: { type: String, trim: true, default: '' },
+  fatherEmail: { type: String, trim: true, lowercase: true, default: '' },
+  motherName: { type: String, trim: true, default: '' },
+  motherPhone: { type: String, trim: true, default: '' },
+  motherEmail: { type: String, trim: true, lowercase: true, default: '' },
+  contactEmail: { type: String, required: true, trim: true, lowercase: true },
+  courseChoices: [{ type: String, enum: COURSE_OPTIONS }],
+  imageRightsInternal: { type: Boolean, required: true },
+  imageRightsExternal: { type: Boolean, required: true },
+  signerName: { type: String, required: true, trim: true },
+  signatureDate: { type: Date, required: true },
   status: {
     type: String,
-    enum: ['en_attente', 'validé', 'refusé'],
-    default: 'en_attente' // Par défaut, toute nouvelle inscription est en attente
+    enum: ['en_attente', 'valide', 'refuse'],
+    default: 'en_attente'
+  },
+  emailStatus: {
+    type: String,
+    enum: ['envoye', 'partiel', 'echec'],
+    default: 'echec'
+  },
+  emailError: { type: String, default: '' }
+}, { timestamps: true });
+
+inscriptionSchema.path('courseChoices').validate(
+  (choices) => Array.isArray(choices) && choices.length > 0,
+  'Choisissez au moins un cours.'
+);
+
+inscriptionSchema.pre('validate', function validateParentContact() {
+  const hasFather = this.fatherName && this.fatherPhone;
+  const hasMother = this.motherName && this.motherPhone;
+  if (!hasFather && !hasMother) {
+    throw new Error('Renseignez le nom et le téléphone d’au moins un parent.');
   }
-}, { 
-  timestamps: true // Garde une trace de la date d'inscription exacte
 });
 
 export default mongoose.model('Inscription', inscriptionSchema);

@@ -2,7 +2,7 @@ import express from 'express';
 import { 
   createInscription, 
   getAllInscriptions, 
-  upddateInscptionStatus 
+  updateInscriptionStatus
 } from '../controllers/inscriptionController.js';
 import authenticateToken from '../middleware/auth.js'; // Notre vigile
 
@@ -20,6 +20,6 @@ router.get('/admin', authenticateToken, getAllInscriptions);
 
 // Route : PUT /api/inscriptions/admin/:id/status
 // Description : L'admin change le statut (ex: valide l'inscription)
-router.put('/admin/:id/status', authenticateToken, upddateInscptionStatus);
+router.put('/admin/:id/status', authenticateToken, updateInscriptionStatus);
 
 export default router;

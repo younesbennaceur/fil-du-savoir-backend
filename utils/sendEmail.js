@@ -3,78 +3,111 @@ import dotenv from 'dotenv';
 
 dotenv.config();
 
-const resend = new Resend(process.env.RESEND_API_KEY);
+const COURSE_LABELS = {
+  arabe_enfant_samedi_matin: 'Langue arabe enfants - samedi 9h30 à 12h (niveau 1 et CP)',
+  arabe_enfant_dimanche_matin: 'Langue arabe enfants - dimanche 9h30 à 12h (maternelle et CP)',
+  arabe_enfant_samedi_apres_midi: 'Langue arabe enfants - samedi 14h à 16h30 (niveaux 1 à 3)',
+  arabe_enfant_dimanche_apres_midi: 'Langue arabe enfants - dimanche 14h à 16h30 (niveaux 1 à 3)',
+  arabe_enfant_mercredi: 'Langue arabe enfants - mercredi 14h30 à 17h (maternelle et CP)',
+  soutien_scolaire_samedi: 'Soutien scolaire - samedi 16h30 à 18h30',
+  arabe_femme_vendredi: 'Langue arabe femmes adultes - vendredi 19h à 21h (niveau 2)',
+  arabe_femme_dimanche: 'Langue arabe femmes adultes - dimanche 18h à 20h (niveau 1)',
+  sciences_islamiques_mardi: 'Sciences islamiques jeunes adolescentes - mardi 18h à 20h'
+};
+
+const escapeHtml = (value = '') => String(value)
+  .replaceAll('&', '&amp;')
+  .replaceAll('<', '&lt;')
+  .replaceAll('>', '&gt;')
+  .replaceAll('"', '&quot;')
+  .replaceAll("'", '&#039;');
+
+const childName = (inscription) =>
+  `${inscription.childFirstName || ''} ${inscription.childLastName || ''}`.trim();
+
+const courseList = (inscription) => (inscription.courseChoices || [])
+  .map((choice) => `<li>${escapeHtml(COURSE_LABELS[choice] || choice)}</li>`)
+  .join('');
+
+const send = async (payload) => {
+  if (!process.env.RESEND_API_KEY) throw new Error('RESEND_API_KEY manquante');
+  const resend = new Resend(process.env.RESEND_API_KEY);
+  const result = await resend.emails.send(payload);
+  if (result.error) throw new Error(result.error.message || 'Erreur Resend');
+  return result.data;
+};
+
+const emailShell = (title, content) => `
+  <div style="background:#f4f8ff;padding:28px 12px;font-family:Arial,sans-serif;color:#17345f">
+    <div style="max-width:640px;margin:auto;background:#fff;border:1px solid #d7e5fb;border-radius:18px;overflow:hidden">
+      <div style="background:#073da5;color:#fff;padding:24px;text-align:center">
+        <div style="font-size:13px;letter-spacing:1.5px;text-transform:uppercase">Association</div>
+        <div style="font-size:30px;font-weight:700;margin-top:4px">Fil du Savoir</div>
+      </div>
+      <div style="padding:28px">
+        <h1 style="font-size:22px;color:#073da5;margin:0 0 18px">${title}</h1>
+        ${content}
+      </div>
+      <div style="background:#073da5;color:#fff;padding:16px;text-align:center;font-size:13px">
+        06 16 23 90 58 · assofildusavoir@gmail.com
+      </div>
+    </div>
+  </div>`;
 
 export const sendInscriptionEmails = async (inscription) => {
+  const from = process.env.EMAIL_FROM || 'Fil du Savoir <inscriptions@fildusavoir.com>';
+  const adminEmail = process.env.EMAIL_ADMIN || process.env.EMAIL_USER || 'assofildusavoir@gmail.com';
+  const errors = [];
+
+  const parentContent = `
+    <p>Bonjour,</p>
+    <p>Nous confirmons la réception du dossier de <strong>${escapeHtml(childName(inscription))}</strong>
+    pour l'année 2026-2027.</p>
+    <p><strong>Type :</strong> ${inscription.registrationType === 'renouvellement' ? 'Renouvellement' : 'Nouvelle inscription'}</p>
+    <p><strong>Choix enregistrés :</strong></p><ul>${courseList(inscription)}</ul>
+    <p>Les places étant limitées, ce message confirme la réception du dossier et non son acceptation définitive.</p>`;
+
+  const adminContent = `
+    <p>Un nouveau dossier vient d'être déposé.</p>
+    <p><strong>Enfant :</strong> ${escapeHtml(childName(inscription))}</p>
+    <p><strong>Contact :</strong> ${escapeHtml(inscription.contactEmail)}</p>
+    <p><strong>Choix :</strong></p><ul>${courseList(inscription)}</ul>
+    <p><a href="${escapeHtml(process.env.ADMIN_URL || 'https://www.fildusavoir.com/admin')}" style="display:inline-block;background:#073da5;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">Ouvrir le dashboard</a></p>`;
+
+  const results = await Promise.allSettled([
+    send({ from, to: [inscription.contactEmail], replyTo: adminEmail, subject: 'Dossier d’inscription reçu - Fil du Savoir', html: emailShell('Votre dossier a bien été reçu', parentContent) }),
+    send({ from, to: [adminEmail], replyTo: inscription.contactEmail, subject: `Nouvelle inscription 2026-2027 - ${childName(inscription)}`, html: emailShell('Nouveau dossier reçu', adminContent) })
+  ]);
+
+  results.forEach((result) => {
+    if (result.status === 'rejected') errors.push(result.reason?.message || String(result.reason));
+  });
+
+  return {
+    status: errors.length === 0 ? 'envoye' : errors.length === results.length ? 'echec' : 'partiel',
+    error: errors.join(' | ')
+  };
+};
+
+export const sendStatusEmail = async (inscription) => {
+  if (inscription.status === 'en_attente') return { sent: false, reason: 'Statut en attente' };
   try {
-    // 🌟 LA MAGIE EST ICI : On utilise ton vrai nom de domaine !
-    // Tu peux inventer le mot avant le @ (contact, inscription, bonjour...)
-    const senderEmail = 'contact@fildusavoir.com'; 
-    
-    // L'adresse de l'association (assofildusavoir@gmail.com) configurée sur Render
-    const adminEmail = process.env.EMAIL_USER; 
-
-    console.log(`Préparation de l'envoi des emails pour : ${inscription.studentName}`);
-
-    // 💌 1. ENVOYER L'EMAIL AU PARENT
-    const { data: parentData, error: parentError } = await resend.emails.send({
-      from: `"Fil du Savoir" <${senderEmail}>`,
-      to: [inscription.parentEmail], // 👈 Resend va lire l'email tapé par le parent dans le formulaire
-      subject: "Confirmation de votre demande d'inscription 🎉",
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #333; max-width: 600px; margin: 0 auto; border: 1px solid #E3F2FD; border-radius: 10px; overflow: hidden;">
-          <div style="background-color: #0D47A1; padding: 20px; text-align: center;">
-            <h1 style="color: white; margin: 0;">Fil du Savoir</h1>
-          </div>
-          <div style="padding: 20px;">
-            <p>Bonjour <strong>${inscription.parentName}</strong>,</p>
-            <p>Nous vous confirmons la bonne réception de la demande d'inscription pour <strong>${inscription.studentName}</strong>.</p>
-            <p><strong>Détails :</strong></p>
-            <ul>
-              <li><strong>Cours :</strong> ${inscription.courseType === 'arabe_enfant' ? 'Arabe Enfants' : inscription.courseType === 'arabe_femme' ? 'Arabe Femmes' : 'Soutien Scolaire'}</li>
-              <li><strong>Niveau :</strong> ${inscription.level}</li>
-              <li><strong>Créneau souhaité :</strong> ${inscription.schedules.join(', ')}</li>
-            </ul>
-            <p>Notre équipe va traiter votre dossier rapidement. Vous recevrez une notification dès que l'inscription sera validée.</p>
-            <br>
-            <p>Cordialement,<br>L'équipe du Fil du Savoir</p>
-          </div>
-        </div>
-      `
+    const accepted = inscription.status === 'valide';
+    await send({
+      from: process.env.EMAIL_FROM || 'Fil du Savoir <inscriptions@fildusavoir.com>',
+      to: [inscription.contactEmail],
+      replyTo: process.env.EMAIL_ADMIN || process.env.EMAIL_USER || 'assofildusavoir@gmail.com',
+      subject: `${accepted ? 'Dossier accepté' : 'Mise à jour de votre dossier'} - Fil du Savoir`,
+      html: emailShell(
+        accepted ? 'Votre inscription est validée' : 'Votre demande ne peut pas être retenue',
+        accepted
+          ? `<p>Bonjour,</p><p>Le dossier de <strong>${escapeHtml(childName(inscription))}</strong> est validé. L’association vous contactera pour finaliser le paiement et l’organisation des cours.</p>`
+          : `<p>Bonjour,</p><p>Nous sommes désolés, le dossier de <strong>${escapeHtml(childName(inscription))}</strong> ne peut pas être retenu actuellement. Vous pouvez nous contacter pour plus d’informations.</p>`
+      )
     });
-
-    if (parentError) {
-      console.error("❌ Erreur Resend (Email Parent) :", parentError);
-    } else {
-      console.log("✅ Email parent envoyé avec succès !");
-    }
-
-    // 🚨 2. ENVOYER L'ALERTE À L'ASSOCIATION
-    const { data: adminData, error: adminError } = await resend.emails.send({
-      from: `"Système Fil du Savoir" <${senderEmail}>`,
-      to: [adminEmail], 
-      subject: `🚨 Nouvelle inscription : ${inscription.studentName}`,
-      html: `
-        <div style="font-family: Arial, sans-serif; color: #333;">
-          <h2>Nouvelle demande reçue !</h2>
-          <p><strong>Parent :</strong> ${inscription.parentName} (${inscription.parentPhone})</p>
-          <p><strong>Email :</strong> ${inscription.parentEmail}</p>
-          <p><strong>Élève :</strong> ${inscription.studentName} (${inscription.studentAge} ans)</p>
-          <p><strong>Cours :</strong> ${inscription.courseType} - ${inscription.level}</p>
-          <p><strong>Créneau :</strong> ${inscription.schedules.join(', ')}</p>
-          <br>
-          <a href="https://www.fildusavoir.com/admin" style="background-color: #0D47A1; color: white; padding: 10px 20px; text-decoration: none; border-radius: 5px;">Voir le tableau de bord</a>
-        </div>
-      `
-    });
-
-    if (adminError) {
-      console.error("❌ Erreur Resend (Email Admin) :", adminError);
-    } else {
-      console.log("✅ Email admin envoyé avec succès !");
-    }
-
+    return { sent: true };
   } catch (error) {
-    console.error("❌ Erreur critique du serveur lors de l'envoi :", error);
+    console.error('Erreur e-mail de statut:', error);
+    return { sent: false, reason: error.message };
   }
 };
