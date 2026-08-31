@@ -16,7 +16,7 @@ export const createInscription = async (req, res) => {
 
     sendInscriptionEmails(savedInscription)
       .then((emailResult) => {
-        console.log(`E-mails inscription ${savedInscription._id}: ${emailResult.status} (parent=${emailResult.parentSent}, association=${emailResult.adminSent})`);
+        console.log(`E-mails inscription ${savedInscription._id}: ${emailResult.status} (parent=${emailResult.parentSent}, association=${emailResult.adminSent})${emailResult.error ? ` - ${emailResult.error}` : ''}`);
         return Inscription.findByIdAndUpdate(savedInscription._id, {
           emailStatus: emailResult.status,
           emailError: emailResult.error || ''
