@@ -81,3 +81,24 @@ export const testEmailConfiguration = async (_req, res) => {
     res.status(502).json({ sent: false, message: error.message || 'Échec du test e-mail' });
   }
 };
+
+export const getInscriptionStats = async (_req, res) => {
+  try {
+    const [total, pending, validated, refused] = await Promise.all([
+      Inscription.countDocuments(),
+      Inscription.countDocuments({ status: 'en_attente' }),
+      Inscription.countDocuments({ status: 'valide' }),
+      Inscription.countDocuments({ status: 'refuse' })
+    ]);
+    res.status(200).json({
+      total,
+      enAttente: pending,
+      valides: validated,
+      refuses: refused,
+      autres: total - pending - validated - refused
+    });
+  } catch (error) {
+    console.error('Erreur statistiques inscriptions:', error);
+    res.status(500).json({ message: 'Erreur pendant le comptage' });
+  }
+};
