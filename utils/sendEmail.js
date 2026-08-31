@@ -37,31 +37,49 @@ const courseList = (inscription) => (inscription.courseChoices || [])
   .map((choice) => `<li>${escapeHtml(COURSE_LABELS[choice] || choice)}</li>`)
   .join('');
 
-let transporterPromise;
+let preferredRoute;
 
-const getTransporter = async () => {
+const smtpRoutes = async () => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error('EMAIL_USER ou EMAIL_PASS manquant');
   }
-  if (!transporterPromise) {
-    transporterPromise = resolve4('smtp.gmail.com').then(([smtpIpv4]) => nodemailer.createTransport({
-      host: smtpIpv4,
-      port: 587,
-      secure: false,
-      requireTLS: true,
-      connectionTimeout: 15000,
-      greetingTimeout: 10000,
-      socketTimeout: 30000,
-      tls: { servername: 'smtp.gmail.com' },
-      auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-    }));
-  }
-  return transporterPromise;
+  const hosts = ['smtp.gmail.com', 'smtp.googlemail.com'];
+  const resolved = await Promise.all(hosts.map(async (servername) => ({
+    servername,
+    address: (await resolve4(servername))[0]
+  })));
+  const routes = resolved.flatMap(({ servername, address }) => [
+    { servername, address, port: 587, secure: false },
+    { servername, address, port: 465, secure: true }
+  ]);
+  return preferredRoute
+    ? [preferredRoute, ...routes.filter((route) => JSON.stringify(route) !== JSON.stringify(preferredRoute))]
+    : routes;
 };
 
 const send = async (payload) => {
-  const transporter = await getTransporter();
-  return transporter.sendMail(payload);
+  const errors = [];
+  for (const route of await smtpRoutes()) {
+    try {
+      const transporter = nodemailer.createTransport({
+        host: route.address,
+        port: route.port,
+        secure: route.secure,
+        requireTLS: !route.secure,
+        connectionTimeout: 10000,
+        greetingTimeout: 8000,
+        socketTimeout: 20000,
+        tls: { servername: route.servername },
+        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
+      });
+      const result = await transporter.sendMail(payload);
+      preferredRoute = route;
+      return result;
+    } catch (error) {
+      errors.push(`${route.servername}:${route.port} ${error.message}`);
+    }
+  }
+  throw new Error(errors.join(' | '));
 };
 
 const emailShell = (title, content) => `
