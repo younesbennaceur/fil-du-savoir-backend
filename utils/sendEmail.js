@@ -1,5 +1,6 @@
 import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
+import { resolve4 } from 'node:dns/promises';
 
 dotenv.config({ path: ['.env.local', '.env'] });
 
@@ -36,30 +37,31 @@ const courseList = (inscription) => (inscription.courseChoices || [])
   .map((choice) => `<li>${escapeHtml(COURSE_LABELS[choice] || choice)}</li>`)
   .join('');
 
-let transporter;
+let transporterPromise;
 
-const getTransporter = () => {
+const getTransporter = async () => {
   if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
     throw new Error('EMAIL_USER ou EMAIL_PASS manquant');
   }
-  if (!transporter) {
-    transporter = nodemailer.createTransport({
-      host: 'smtp.gmail.com',
+  if (!transporterPromise) {
+    transporterPromise = resolve4('smtp.gmail.com').then(([smtpIpv4]) => nodemailer.createTransport({
+      host: smtpIpv4,
       port: 587,
-      family: 4,
       secure: false,
       requireTLS: true,
       connectionTimeout: 15000,
       greetingTimeout: 10000,
       socketTimeout: 30000,
+      tls: { servername: 'smtp.gmail.com' },
       auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-    });
+    }));
   }
-  return transporter;
+  return transporterPromise;
 };
 
 const send = async (payload) => {
-  return getTransporter().sendMail(payload);
+  const transporter = await getTransporter();
+  return transporter.sendMail(payload);
 };
 
 const emailShell = (title, content) => `
