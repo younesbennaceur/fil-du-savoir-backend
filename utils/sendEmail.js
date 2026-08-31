@@ -141,3 +141,18 @@ export const sendStatusEmail = async (inscription) => {
     return { sent: false, reason: error.message };
   }
 };
+
+export const sendTestEmail = async () => {
+  const adminEmail = associationEmail();
+  const result = await send({
+    from: sender(),
+    to: [adminEmail],
+    reply_to: adminEmail,
+    subject: 'Test e-mail réussi - Fil du Savoir',
+    html: emailShell(
+      'Configuration e-mail opérationnelle',
+      '<p>Le site Fil du Savoir peut envoyer ses notifications avec Resend.</p>'
+    )
+  });
+  return { sent: true, id: result.id };
+};

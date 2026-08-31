@@ -2,7 +2,8 @@ import express from 'express';
 import { 
   createInscription, 
   getAllInscriptions, 
-  updateInscriptionStatus
+  updateInscriptionStatus,
+  testEmailConfiguration
 } from '../controllers/inscriptionController.js';
 import authenticateToken from '../middleware/auth.js'; // Notre vigile
 
@@ -17,6 +18,9 @@ router.post('/', createInscription);
 // Route : GET /api/inscriptions/admin
 // Description : L'admin récupère la liste de toutes les inscriptions
 router.get('/admin', authenticateToken, getAllInscriptions);
+
+// Test ciblé de la configuration e-mail, sans créer ni lire de dossier.
+router.post('/admin/test-email', authenticateToken, testEmailConfiguration);
 
 // Route : PUT /api/inscriptions/admin/:id/status
 // Description : L'admin change le statut (ex: valide l'inscription)

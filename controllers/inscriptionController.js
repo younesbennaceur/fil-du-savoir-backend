@@ -1,5 +1,5 @@
 import Inscription from '../models/inscription.js';
-import { sendInscriptionEmails, sendStatusEmail } from '../utils/sendEmail.js';
+import { sendInscriptionEmails, sendStatusEmail, sendTestEmail } from '../utils/sendEmail.js';
 
 const ALLOWED_STATUSES = ['en_attente', 'valide', 'refuse'];
 
@@ -69,5 +69,15 @@ export const updateInscriptionStatus = async (req, res) => {
   } catch (error) {
     console.error('Erreur mise à jour statut inscription:', error);
     res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+export const testEmailConfiguration = async (_req, res) => {
+  try {
+    const result = await sendTestEmail();
+    res.status(200).json(result);
+  } catch (error) {
+    console.error('Erreur test e-mail:', error);
+    res.status(502).json({ sent: false, message: error.message || 'Échec du test e-mail' });
   }
 };
