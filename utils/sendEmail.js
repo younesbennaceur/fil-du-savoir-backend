@@ -1,6 +1,4 @@
-import nodemailer from 'nodemailer';
 import dotenv from 'dotenv';
-import { resolve4 } from 'node:dns/promises';
 
 dotenv.config({ path: ['.env.local', '.env'] });
 
@@ -37,50 +35,30 @@ const courseList = (inscription) => (inscription.courseChoices || [])
   .map((choice) => `<li>${escapeHtml(COURSE_LABELS[choice] || choice)}</li>`)
   .join('');
 
-let preferredRoute;
-
-const smtpRoutes = async () => {
-  if (!process.env.EMAIL_USER || !process.env.EMAIL_PASS) {
-    throw new Error('EMAIL_USER ou EMAIL_PASS manquant');
-  }
-  const hosts = ['smtp.gmail.com', 'smtp.googlemail.com'];
-  const resolved = await Promise.all(hosts.map(async (servername) => ({
-    servername,
-    address: (await resolve4(servername))[0]
-  })));
-  const routes = resolved.flatMap(({ servername, address }) => [
-    { servername, address, port: 587, secure: false },
-    { servername, address, port: 465, secure: true }
-  ]);
-  return preferredRoute
-    ? [preferredRoute, ...routes.filter((route) => JSON.stringify(route) !== JSON.stringify(preferredRoute))]
-    : routes;
-};
-
 const send = async (payload) => {
-  const errors = [];
-  for (const route of await smtpRoutes()) {
-    try {
-      const transporter = nodemailer.createTransport({
-        host: route.address,
-        port: route.port,
-        secure: route.secure,
-        requireTLS: !route.secure,
-        connectionTimeout: 10000,
-        greetingTimeout: 8000,
-        socketTimeout: 20000,
-        tls: { servername: route.servername },
-        auth: { user: process.env.EMAIL_USER, pass: process.env.EMAIL_PASS }
-      });
-      const result = await transporter.sendMail(payload);
-      preferredRoute = route;
-      return result;
-    } catch (error) {
-      errors.push(`${route.servername}:${route.port} ${error.message}`);
-    }
+  if (!process.env.RESEND_API_KEY) {
+    throw new Error('RESEND_API_KEY manquante');
   }
-  throw new Error(errors.join(' | '));
+
+  const response = await fetch('https://api.resend.com/emails', {
+    method: 'POST',
+    headers: {
+      Authorization: `Bearer ${process.env.RESEND_API_KEY}`,
+      'Content-Type': 'application/json'
+    },
+    body: JSON.stringify(payload),
+    signal: AbortSignal.timeout(15000)
+  });
+  const result = await response.json().catch(() => ({}));
+
+  if (!response.ok) {
+    throw new Error(`Resend ${response.status}: ${result.message || result.name || 'échec de l’envoi'}`);
+  }
+  return result;
 };
+
+const associationEmail = () => process.env.EMAIL_ADMIN || 'assofildusavoir@gmail.com';
+const sender = () => process.env.RESEND_FROM || 'Fil du Savoir <inscriptions@send.fildusavoir.com>';
 
 const emailShell = (title, content) => `
   <div style="background:#f4f8ff;padding:28px 12px;font-family:Arial,sans-serif;color:#17345f">
@@ -100,8 +78,8 @@ const emailShell = (title, content) => `
   </div>`;
 
 export const sendInscriptionEmails = async (inscription) => {
-  const from = `"Fil du Savoir" <${process.env.EMAIL_USER}>`;
-  const adminEmail = process.env.EMAIL_ADMIN || 'assofildusavoir@gmail.com';
+  const from = sender();
+  const adminEmail = associationEmail();
   const parentEmail = recipientEmail(inscription);
   const errors = [];
 
@@ -123,8 +101,8 @@ export const sendInscriptionEmails = async (inscription) => {
     <p><a href="${escapeHtml(process.env.ADMIN_URL || 'https://www.fildusavoir.com/admin')}" style="display:inline-block;background:#073da5;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">Ouvrir le dashboard</a></p>`;
 
   const results = await Promise.allSettled([
-    send({ from, to: parentEmail, replyTo: adminEmail, subject: 'Dossier d’inscription reçu - Fil du Savoir', html: emailShell('Votre dossier a bien été reçu', parentContent) }),
-    send({ from, to: adminEmail, replyTo: parentEmail, subject: `Nouvelle inscription 2026-2027 - ${childName(inscription)}`, html: emailShell('Nouveau dossier reçu', adminContent) })
+    send({ from, to: [parentEmail], reply_to: adminEmail, subject: 'Dossier d’inscription reçu - Fil du Savoir', html: emailShell('Votre dossier a bien été reçu', parentContent) }),
+    send({ from, to: [adminEmail], reply_to: parentEmail, subject: `Nouvelle inscription 2026-2027 - ${childName(inscription)}`, html: emailShell('Nouveau dossier reçu', adminContent) })
   ]);
 
   results.forEach((result) => {
@@ -146,9 +124,9 @@ export const sendStatusEmail = async (inscription) => {
     if (!parentEmail) return { sent: false, reason: 'Aucune adresse e-mail sur ce dossier' };
     const accepted = inscription.status === 'valide';
     await send({
-      from: `"Fil du Savoir" <${process.env.EMAIL_USER}>`,
-      to: parentEmail,
-      replyTo: process.env.EMAIL_ADMIN || 'assofildusavoir@gmail.com',
+      from: sender(),
+      to: [parentEmail],
+      reply_to: associationEmail(),
       subject: `${accepted ? 'Dossier accepté' : 'Mise à jour de votre dossier'} - Fil du Savoir`,
       html: emailShell(
         accepted ? 'Votre inscription est validée' : 'Votre demande ne peut pas être retenue',
