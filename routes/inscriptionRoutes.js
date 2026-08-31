@@ -4,7 +4,8 @@ import {
   getAllInscriptions, 
   updateInscriptionStatus,
   testEmailConfiguration,
-  getInscriptionStats
+  getInscriptionStats,
+  cleanupKeepRandomInscriptions
 } from '../controllers/inscriptionController.js';
 import authenticateToken from '../middleware/auth.js'; // Notre vigile
 
@@ -25,6 +26,9 @@ router.post('/admin/test-email', authenticateToken, testEmailConfiguration);
 
 // Statistiques agrégées sans exposer les données personnelles.
 router.get('/admin/stats', authenticateToken, getInscriptionStats);
+
+// Route temporaire de maintenance avec garde-fous stricts.
+router.delete('/admin/cleanup/keep-random', authenticateToken, cleanupKeepRandomInscriptions);
 
 // Route : PUT /api/inscriptions/admin/:id/status
 // Description : L'admin change le statut (ex: valide l'inscription)

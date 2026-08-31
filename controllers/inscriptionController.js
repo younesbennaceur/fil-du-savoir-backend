@@ -102,3 +102,34 @@ export const getInscriptionStats = async (_req, res) => {
     res.status(500).json({ message: 'Erreur pendant le comptage' });
   }
 };
+
+export const cleanupKeepRandomInscriptions = async (req, res) => {
+  const { expectedTotal, keepCount, confirmation } = req.body;
+  if (expectedTotal !== 52 || keepCount !== 4 || confirmation !== 'SUPPRIMER_48') {
+    return res.status(400).json({ message: 'Confirmation de nettoyage invalide' });
+  }
+
+  try {
+    const total = await Inscription.countDocuments();
+    if (total !== expectedTotal) {
+      return res.status(409).json({
+        message: 'Le nombre de dossiers a changé. Nettoyage annulé.',
+        expectedTotal,
+        actualTotal: total
+      });
+    }
+
+    const kept = await Inscription.aggregate([
+      { $sample: { size: keepCount } },
+      { $project: { _id: 1 } }
+    ]);
+    const keptIds = kept.map((item) => item._id);
+    const result = await Inscription.deleteMany({ _id: { $nin: keptIds } });
+    const remaining = await Inscription.countDocuments();
+
+    res.status(200).json({ deleted: result.deletedCount, remaining });
+  } catch (error) {
+    console.error('Erreur nettoyage aléatoire:', error);
+    res.status(500).json({ message: 'Erreur pendant le nettoyage' });
+  }
+};
