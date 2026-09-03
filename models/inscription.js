@@ -40,6 +40,13 @@ const inscriptionSchema = new mongoose.Schema({
     enum: ['en_attente', 'valide', 'refuse'],
     default: 'en_attente'
   },
+  paymentStatus: {
+    type: String,
+    enum: ['non_paye', 'especes', 'cheque', 'virement', 'carte_en_ligne'],
+    default: 'non_paye'
+  },
+  paymentUpdatedAt: { type: Date, default: null },
+  paymentNote: { type: String, trim: true, maxlength: 200, default: '' },
   emailStatus: {
     type: String,
     enum: ['en_cours', 'envoye', 'partiel', 'echec'],

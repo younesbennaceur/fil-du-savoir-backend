@@ -3,6 +3,8 @@ import {
   createInscription, 
   getAllInscriptions, 
   updateInscriptionStatus,
+  updatePaymentStatus,
+  downloadInscriptionPdf,
   testEmailConfiguration,
   getInscriptionStats
 } from '../controllers/inscriptionController.js';
@@ -25,6 +27,10 @@ router.post('/admin/test-email', authenticateToken, testEmailConfiguration);
 
 // Statistiques agrégées sans exposer les données personnelles.
 router.get('/admin/stats', authenticateToken, getInscriptionStats);
+
+router.get('/admin/:id/pdf', authenticateToken, downloadInscriptionPdf);
+
+router.put('/admin/:id/payment', authenticateToken, updatePaymentStatus);
 
 // Route : PUT /api/inscriptions/admin/:id/status
 // Description : L'admin change le statut (ex: valide l'inscription)

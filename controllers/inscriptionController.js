@@ -1,7 +1,9 @@
 import Inscription from '../models/inscription.js';
 import { sendInscriptionEmails, sendStatusEmail, sendTestEmail } from '../utils/sendEmail.js';
+import { buildInscriptionPdf, pdfFileName } from '../utils/inscriptionPdf.js';
 
 const ALLOWED_STATUSES = ['en_attente', 'valide', 'refuse'];
+const ALLOWED_PAYMENT_STATUSES = ['non_paye', 'especes', 'cheque', 'virement', 'carte_en_ligne'];
 
 export const createInscription = async (req, res) => {
   try {
@@ -69,6 +71,47 @@ export const updateInscriptionStatus = async (req, res) => {
   } catch (error) {
     console.error('Erreur mise à jour statut inscription:', error);
     res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+export const updatePaymentStatus = async (req, res) => {
+  const { paymentStatus, paymentNote = '' } = req.body;
+  if (!ALLOWED_PAYMENT_STATUSES.includes(paymentStatus)) {
+    return res.status(400).json({ message: 'Statut de paiement invalide' });
+  }
+  if (typeof paymentNote !== 'string' || paymentNote.length > 200) {
+    return res.status(400).json({ message: 'La note de paiement est invalide' });
+  }
+
+  try {
+    const inscription = await Inscription.findByIdAndUpdate(
+      req.params.id,
+      { paymentStatus, paymentNote: paymentNote.trim(), paymentUpdatedAt: new Date() },
+      { new: true, runValidators: true }
+    );
+    if (!inscription) return res.status(404).json({ message: 'Inscription non trouvée' });
+    res.status(200).json({ inscription });
+  } catch (error) {
+    console.error('Erreur mise à jour paiement:', error);
+    res.status(500).json({ message: 'Erreur serveur' });
+  }
+};
+
+export const downloadInscriptionPdf = async (req, res) => {
+  try {
+    const inscription = await Inscription.findById(req.params.id);
+    if (!inscription) return res.status(404).json({ message: 'Inscription non trouvée' });
+    const pdf = await buildInscriptionPdf(inscription);
+    res.set({
+      'Content-Type': 'application/pdf',
+      'Content-Disposition': `attachment; filename="${pdfFileName(inscription)}"`,
+      'Content-Length': pdf.length,
+      'Cache-Control': 'private, no-store'
+    });
+    res.send(pdf);
+  } catch (error) {
+    console.error('Erreur génération PDF:', error);
+    res.status(500).json({ message: 'Impossible de générer le PDF' });
   }
 };
 

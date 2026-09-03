@@ -35,6 +35,8 @@ const courseList = (inscription) => (inscription.courseChoices || [])
   .map((choice) => `<li>${escapeHtml(COURSE_LABELS[choice] || choice)}</li>`)
   .join('');
 
+const paymentUrl = 'https://fil-du-savoir.s2.yapla.com/fr/event-118814';
+
 const send = async (payload) => {
   if (!process.env.RESEND_API_KEY) {
     throw new Error('RESEND_API_KEY manquante');
@@ -91,7 +93,10 @@ export const sendInscriptionEmails = async (inscription) => {
     pour l'année 2026-2027.</p>
     <p><strong>Type :</strong> ${inscription.registrationType === 'renouvellement' ? 'Renouvellement' : 'Nouvelle inscription'}</p>
     <p><strong>Choix enregistrés :</strong></p><ul>${courseList(inscription)}</ul>
-    <p>Les places étant limitées, ce message confirme la réception du dossier et non son acceptation définitive.</p>`;
+    <p>Les places étant limitées, ce message confirme la réception du dossier et non son acceptation définitive.</p>
+    <p><strong>Le paiement est obligatoire pour finaliser l'inscription.</strong></p>
+    <p><a href="${paymentUrl}" style="display:inline-block;background:#073da5;color:#fff;padding:12px 18px;border-radius:8px;text-decoration:none">Payer en ligne sur Yapla</a></p>
+    <p>Pour un paiement en espèces, par chèque ou par virement, contactez l'association.</p>`;
 
   const adminContent = `
     <p>Un nouveau dossier vient d'être déposé.</p>
